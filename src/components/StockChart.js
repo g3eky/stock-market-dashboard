@@ -9,17 +9,30 @@ import {
   Select,
   MenuItem,
   InputLabel,
-  Grid
+  Grid,
+  Divider,
+  Chip
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ReactApexChart from 'react-apexcharts';
 import { stockData } from '../data/stockData';
+import SimilarStocks from './SimilarStocks';
 
 const ChartContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
   marginTop: theme.spacing(3),
   marginBottom: theme.spacing(3),
   borderRadius: theme.shape.borderRadius,
+}));
+
+const MetricItem = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  padding: theme.spacing(1),
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  minWidth: '100px',
 }));
 
 const StockChart = () => {
@@ -232,84 +245,148 @@ const StockChart = () => {
   };
   
   return (
-    <ChartContainer elevation={3}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-          {currentStock.name} ({currentStock.symbol})
-        </Typography>
-        
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel id="stock-select-label">Stock</InputLabel>
-            <Select
-              labelId="stock-select-label"
-              id="stock-select"
-              value={selectedStock}
-              label="Stock"
-              onChange={handleStockChange}
+    <>
+      <ChartContainer elevation={3}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+              {currentStock.name} ({currentStock.symbol})
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+              <Chip 
+                label={currentStock.sector} 
+                size="small" 
+                sx={{ mr: 1, backgroundColor: 'rgba(25, 118, 210, 0.1)', color: 'primary.main' }} 
+              />
+              <Typography variant="body2" color="text.secondary">
+                {currentStock.industry}
+              </Typography>
+            </Box>
+          </Box>
+          
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <FormControl sx={{ minWidth: 150 }}>
+              <InputLabel id="stock-select-label">Stock</InputLabel>
+              <Select
+                labelId="stock-select-label"
+                id="stock-select"
+                value={selectedStock}
+                label="Stock"
+                onChange={handleStockChange}
+                size="small"
+              >
+                {stockData.map((stock) => (
+                  <MenuItem key={stock.symbol} value={stock.symbol}>
+                    {stock.symbol} - {stock.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            <ToggleButtonGroup
+              value={timeRange}
+              exclusive
+              onChange={handleTimeRangeChange}
               size="small"
             >
-              {stockData.map((stock) => (
-                <MenuItem key={stock.symbol} value={stock.symbol}>
-                  {stock.symbol} - {stock.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-          <ToggleButtonGroup
-            value={timeRange}
-            exclusive
-            onChange={handleTimeRangeChange}
-            size="small"
-          >
-            <ToggleButton value="1W">1W</ToggleButton>
-            <ToggleButton value="1M">1M</ToggleButton>
-            <ToggleButton value="3M">3M</ToggleButton>
-            <ToggleButton value="1Y">1Y</ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
-      </Box>
-      
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', mr: 2 }}>
-          ${currentStock.price.toFixed(2)}
-        </Typography>
-        <Typography 
-          variant="body1" 
-          sx={{ 
-            color: currentStock.change >= 0 ? 'success.main' : 'error.main',
-            fontWeight: 'bold',
-          }}
-        >
-          {currentStock.change >= 0 ? '+' : ''}{currentStock.change.toFixed(2)} ({currentStock.changePercent.toFixed(2)}%)
-        </Typography>
-      </Box>
-      
-      <Grid container spacing={0}>
-        <Grid item xs={12}>
-          <Box sx={{ height: 350, mb: 1 }}>
-            <ReactApexChart 
-              options={candlestickOptions} 
-              series={[{ data: candlestickData }]} 
-              type="candlestick" 
-              height={350} 
-            />
+              <ToggleButton value="1W">1W</ToggleButton>
+              <ToggleButton value="1M">1M</ToggleButton>
+              <ToggleButton value="3M">3M</ToggleButton>
+              <ToggleButton value="1Y">1Y</ToggleButton>
+            </ToggleButtonGroup>
           </Box>
+        </Box>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', mr: 2 }}>
+            ${currentStock.price.toFixed(2)}
+          </Typography>
+          <Typography 
+            variant="body1" 
+            sx={{ 
+              color: currentStock.change >= 0 ? 'success.main' : 'error.main',
+              fontWeight: 'bold',
+            }}
+          >
+            {currentStock.change >= 0 ? '+' : ''}{currentStock.change.toFixed(2)} ({currentStock.changePercent.toFixed(2)}%)
+          </Typography>
+        </Box>
+        
+        <Grid container spacing={0}>
+          <Grid item xs={12}>
+            <Box sx={{ height: 350, mb: 1 }}>
+              <ReactApexChart 
+                options={candlestickOptions} 
+                series={[{ data: candlestickData }]} 
+                type="candlestick" 
+                height={350} 
+              />
+            </Box>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Box sx={{ height: 160 }}>
+              <ReactApexChart 
+                options={volumeOptions} 
+                series={[{ name: 'Volume', data: volumeData }]} 
+                type="bar" 
+                height={160} 
+              />
+            </Box>
+          </Grid>
         </Grid>
         
-        <Grid item xs={12}>
-          <Box sx={{ height: 160 }}>
-            <ReactApexChart 
-              options={volumeOptions} 
-              series={[{ name: 'Volume', data: volumeData }]} 
-              type="bar" 
-              height={160} 
-            />
-          </Box>
-        </Grid>
-      </Grid>
-    </ChartContainer>
+        <Divider sx={{ my: 3 }} />
+        
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+          Key Metrics
+        </Typography>
+        
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+          <MetricItem>
+            <Typography variant="body2" color="text.secondary">P/E Ratio</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{currentStock.peRatio.toFixed(2)}</Typography>
+          </MetricItem>
+          
+          <MetricItem>
+            <Typography variant="body2" color="text.secondary">EPS</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>${currentStock.eps.toFixed(2)}</Typography>
+          </MetricItem>
+          
+          <MetricItem>
+            <Typography variant="body2" color="text.secondary">Market Cap</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>${(currentStock.marketCap / 1000000000).toFixed(2)}B</Typography>
+          </MetricItem>
+          
+          <MetricItem>
+            <Typography variant="body2" color="text.secondary">Revenue</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>${currentStock.revenueInBillions.toFixed(2)}B</Typography>
+          </MetricItem>
+          
+          <MetricItem>
+            <Typography variant="body2" color="text.secondary">Profit Margin</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{currentStock.profitMargin.toFixed(2)}%</Typography>
+          </MetricItem>
+          
+          <MetricItem>
+            <Typography variant="body2" color="text.secondary">Dividend Yield</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{currentStock.dividendYield.toFixed(2)}%</Typography>
+          </MetricItem>
+          
+          <MetricItem>
+            <Typography variant="body2" color="text.secondary">52W High</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>${currentStock.fiftyTwoWeekHigh.toFixed(2)}</Typography>
+          </MetricItem>
+          
+          <MetricItem>
+            <Typography variant="body2" color="text.secondary">52W Low</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>${currentStock.fiftyTwoWeekLow.toFixed(2)}</Typography>
+          </MetricItem>
+        </Box>
+      </ChartContainer>
+      
+      <SimilarStocks selectedStock={selectedStock} />
+    </>
   );
 };
 

@@ -2,16 +2,26 @@
 
 // Stock symbols and their names
 export const stockSymbols = [
-  { symbol: 'AAPL', name: 'Apple Inc.' },
-  { symbol: 'MSFT', name: 'Microsoft Corporation' },
-  { symbol: 'GOOGL', name: 'Alphabet Inc.' },
-  { symbol: 'AMZN', name: 'Amazon.com Inc.' },
-  { symbol: 'META', name: 'Meta Platforms Inc.' },
-  { symbol: 'TSLA', name: 'Tesla Inc.' },
-  { symbol: 'NVDA', name: 'NVIDIA Corporation' },
-  { symbol: 'JPM', name: 'JPMorgan Chase & Co.' },
-  { symbol: 'V', name: 'Visa Inc.' },
-  { symbol: 'WMT', name: 'Walmart Inc.' },
+  { symbol: 'AAPL', name: 'Apple Inc.', sector: 'Technology', industry: 'Consumer Electronics' },
+  { symbol: 'MSFT', name: 'Microsoft Corporation', sector: 'Technology', industry: 'Software' },
+  { symbol: 'GOOGL', name: 'Alphabet Inc.', sector: 'Technology', industry: 'Internet Content & Information' },
+  { symbol: 'AMZN', name: 'Amazon.com Inc.', sector: 'Consumer Cyclical', industry: 'Internet Retail' },
+  { symbol: 'META', name: 'Meta Platforms Inc.', sector: 'Technology', industry: 'Internet Content & Information' },
+  { symbol: 'TSLA', name: 'Tesla Inc.', sector: 'Consumer Cyclical', industry: 'Auto Manufacturers' },
+  { symbol: 'NVDA', name: 'NVIDIA Corporation', sector: 'Technology', industry: 'Semiconductors' },
+  { symbol: 'JPM', name: 'JPMorgan Chase & Co.', sector: 'Financial Services', industry: 'Banks' },
+  { symbol: 'V', name: 'Visa Inc.', sector: 'Financial Services', industry: 'Credit Services' },
+  { symbol: 'WMT', name: 'Walmart Inc.', sector: 'Consumer Defensive', industry: 'Discount Stores' },
+  { symbol: 'INTC', name: 'Intel Corporation', sector: 'Technology', industry: 'Semiconductors' },
+  { symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', sector: 'Technology', industry: 'Semiconductors' },
+  { symbol: 'QCOM', name: 'Qualcomm Inc.', sector: 'Technology', industry: 'Semiconductors' },
+  { symbol: 'CSCO', name: 'Cisco Systems Inc.', sector: 'Technology', industry: 'Communication Equipment' },
+  { symbol: 'IBM', name: 'International Business Machines', sector: 'Technology', industry: 'Information Technology Services' },
+  { symbol: 'ORCL', name: 'Oracle Corporation', sector: 'Technology', industry: 'Software' },
+  { symbol: 'CRM', name: 'Salesforce Inc.', sector: 'Technology', industry: 'Software' },
+  { symbol: 'ADBE', name: 'Adobe Inc.', sector: 'Technology', industry: 'Software' },
+  { symbol: 'NFLX', name: 'Netflix Inc.', sector: 'Communication Services', industry: 'Entertainment' },
+  { symbol: 'DIS', name: 'The Walt Disney Company', sector: 'Communication Services', industry: 'Entertainment' },
 ];
 
 // Generate random price data for the last 30 days with OHLC values
@@ -51,6 +61,42 @@ const generateHistoricalData = (basePrice, volatility) => {
   return data;
 };
 
+// Generate random financial metrics
+const generateFinancialMetrics = (price) => {
+  // Generate random P/E ratio between 10 and 50
+  const peRatio = parseFloat((Math.random() * 40 + 10).toFixed(2));
+  
+  // Generate random EPS based on price and P/E ratio
+  const eps = parseFloat((price / peRatio).toFixed(2));
+  
+  // Generate random revenue in billions
+  const revenueInBillions = parseFloat((Math.random() * 300 + 5).toFixed(2));
+  
+  // Generate random profit margin
+  const profitMargin = parseFloat((Math.random() * 30 + 5).toFixed(2));
+  
+  // Generate random dividend yield
+  const dividendYield = parseFloat((Math.random() * 3).toFixed(2));
+  
+  // Generate random beta
+  const beta = parseFloat((Math.random() * 2 + 0.5).toFixed(2));
+  
+  // Generate random 52-week high and low
+  const fiftyTwoWeekHigh = parseFloat((price * (1 + Math.random() * 0.3)).toFixed(2));
+  const fiftyTwoWeekLow = parseFloat((price * (1 - Math.random() * 0.3)).toFixed(2));
+  
+  return {
+    peRatio,
+    eps,
+    revenueInBillions,
+    profitMargin,
+    dividendYield,
+    beta,
+    fiftyTwoWeekHigh,
+    fiftyTwoWeekLow
+  };
+};
+
 // Generate current stock data with historical prices
 export const stockData = stockSymbols.map(stock => {
   const basePrice = Math.random() * 1000 + 50; // Random base price between 50 and 1050
@@ -60,6 +106,12 @@ export const stockData = stockSymbols.map(stock => {
   const previousPrice = historicalData[historicalData.length - 2].close;
   const change = currentPrice - previousPrice;
   const changePercent = (change / previousPrice) * 100;
+  const financialMetrics = generateFinancialMetrics(currentPrice);
+  
+  // Special case for Apple to ensure it has a higher P/E ratio
+  const adjustedFinancialMetrics = stock.symbol === 'AAPL' 
+    ? { ...financialMetrics, peRatio: 30 + Math.random() * 10 } 
+    : financialMetrics;
   
   return {
     ...stock,
@@ -68,6 +120,7 @@ export const stockData = stockSymbols.map(stock => {
     changePercent: parseFloat(changePercent.toFixed(2)),
     marketCap: parseFloat((currentPrice * (Math.random() * 10 + 1) * 1000000000).toFixed(2)),
     historicalData,
+    ...adjustedFinancialMetrics
   };
 });
 
@@ -129,6 +182,25 @@ export const getTopGainers = () => {
 
 export const getTopLosers = () => {
   return [...stockData].sort((a, b) => a.changePercent - b.changePercent).slice(0, 5);
+};
+
+// Find similar stocks with lower P/E ratio
+export const getSimilarStocksWithLowerPE = (stockSymbol, limit = 5) => {
+  const targetStock = stockData.find(stock => stock.symbol === stockSymbol);
+  
+  if (!targetStock) {
+    return [];
+  }
+  
+  // Find stocks in the same sector with lower P/E ratio
+  const similarStocks = stockData.filter(stock => 
+    stock.symbol !== stockSymbol && 
+    stock.sector === targetStock.sector && 
+    stock.peRatio < targetStock.peRatio
+  );
+  
+  // Sort by P/E ratio (ascending)
+  return similarStocks.sort((a, b) => a.peRatio - b.peRatio).slice(0, limit);
 };
 
 // Market news (fake data)
