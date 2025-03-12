@@ -126,6 +126,9 @@ const StockChart = () => {
       borderColor: '#f1f1f1'
     },
     tooltip: {
+      enabled: true,
+      intersect: false,
+      shared: false,
       custom: function({ seriesIndex, dataPointIndex, w }) {
         const o = w.globals.seriesCandleO[seriesIndex][dataPointIndex];
         const h = w.globals.seriesCandleH[seriesIndex][dataPointIndex];
@@ -195,6 +198,8 @@ const StockChart = () => {
       }
     },
     tooltip: {
+      enabled: true,
+      intersect: false,
       shared: true,
       custom: function({ seriesIndex, dataPointIndex, w }) {
         const volume = w.globals.series[seriesIndex][dataPointIndex];
