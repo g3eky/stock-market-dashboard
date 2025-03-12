@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Paper, 
@@ -25,6 +25,22 @@ const ChartContainer = styled(Paper)(({ theme }) => ({
 const StockChart = () => {
   const [selectedStock, setSelectedStock] = useState(stockData[0].symbol);
   const [timeRange, setTimeRange] = useState('1M');
+  
+  // Listen for stock selection events from the search bar
+  useEffect(() => {
+    const handleStockSelected = (event) => {
+      const { symbol } = event.detail;
+      if (symbol && stockData.some(stock => stock.symbol === symbol)) {
+        setSelectedStock(symbol);
+      }
+    };
+    
+    window.addEventListener('stockSelected', handleStockSelected);
+    
+    return () => {
+      window.removeEventListener('stockSelected', handleStockSelected);
+    };
+  }, []);
   
   const handleStockChange = (event) => {
     setSelectedStock(event.target.value);
