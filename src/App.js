@@ -9,6 +9,11 @@ import TopMovers from './components/TopMovers';
 import SectorPerformance from './components/SectorPerformance';
 import MarketNews from './components/MarketNews';
 
+// Note: To use the Alpha Vantage API, you need to get an API key from:
+// https://www.alphavantage.co/support/#api-key
+// Then create a .env file in the root directory with:
+// REACT_APP_ALPHA_VANTAGE_API_KEY=your_api_key_here
+
 // Create a theme
 const theme = createTheme({
   palette: {
@@ -24,7 +29,15 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: [
+      '-apple-system',
+      'BlinkMacSystemFont',
+      '"Segoe UI"',
+      'Roboto',
+      '"Helvetica Neue"',
+      'Arial',
+      'sans-serif',
+    ].join(','),
   },
   components: {
     MuiPaper: {

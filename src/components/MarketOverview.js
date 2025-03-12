@@ -1,78 +1,186 @@
-import React from 'react';
-import { Grid, Paper, Typography, Box } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { 
+  Box, 
+  Paper, 
+  Typography, 
+  Grid, 
+  Divider,
+  CircularProgress,
+  Alert
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import { marketIndices } from '../data/stockData';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import { fetchMultipleQuotes, marketIndices, fetchGlobalMarketStatus } from '../services/stockApi';
 
-const Item = styled(Paper)(({ theme }) => ({
-  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
-  ...theme.typography.body2,
+const OverviewContainer = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(3),
+  marginBottom: theme.spacing(3),
+  borderRadius: theme.shape.borderRadius,
+}));
+
+const IndexCard = styled(Box)(({ theme, positive }) => ({
   padding: theme.spacing(2),
-  color: theme.palette.text.primary,
-  height: '100%',
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: positive ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
   display: 'flex',
   flexDirection: 'column',
-  justifyContent: 'space-between',
+  height: '100%',
+}));
+
+const LoadingContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: theme.spacing(4),
+  minHeight: '200px',
 }));
 
 const MarketOverview = () => {
+  const [marketData, setMarketData] = useState([]);
+  const [marketStatus, setMarketStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  useEffect(() => {
+    const fetchMarketData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Fetch quotes for market indices
+        const indexSymbols = marketIndices.map(index => index.symbol);
+        const quotes = await fetchMultipleQuotes(indexSymbols);
+        
+        // Combine with index names
+        const marketDataWithNames = quotes.map(quote => {
+          const indexInfo = marketIndices.find(index => index.symbol === quote.symbol);
+          return {
+            ...quote,
+            name: indexInfo ? indexInfo.name : quote.symbol
+          };
+        });
+        
+        setMarketData(marketDataWithNames);
+        
+        // Fetch global market status
+        const status = await fetchGlobalMarketStatus();
+        setMarketStatus(status);
+      } catch (err) {
+        console.error('Error fetching market data:', err);
+        setError('Failed to fetch market data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchMarketData();
+    
+    // Refresh market data every 5 minutes
+    const intervalId = setInterval(fetchMarketData, 5 * 60 * 1000);
+    
+    return () => clearInterval(intervalId);
+  }, []);
+  
+  // If loading, show loading indicator
+  if (loading) {
+    return (
+      <OverviewContainer elevation={3}>
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+          Market Overview
+        </Typography>
+        <LoadingContainer>
+          <CircularProgress size={40} />
+          <Typography variant="body1" sx={{ mt: 2 }}>
+            Loading market data...
+          </Typography>
+        </LoadingContainer>
+      </OverviewContainer>
+    );
+  }
+  
+  // If error, show error message
+  if (error) {
+    return (
+      <OverviewContainer elevation={3}>
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+          Market Overview
+        </Typography>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      </OverviewContainer>
+    );
+  }
+  
   return (
-    <Box sx={{ flexGrow: 1, mt: 3 }}>
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
-        Market Overview
-      </Typography>
-      <Grid container spacing={3}>
-        {marketIndices.map((index) => (
-          <Grid item xs={12} sm={6} md={3} key={index.symbol}>
-            <Item elevation={3}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Box>
-                  <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-                    {index.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {index.symbol}
-                  </Typography>
-                </Box>
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    backgroundColor: index.changePercent >= 0 ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
-                    color: index.changePercent >= 0 ? 'success.main' : 'error.main',
-                    borderRadius: 1,
-                    px: 1,
-                    py: 0.5,
-                  }}
-                >
-                  {index.changePercent >= 0 ? <TrendingUpIcon fontSize="small" /> : <TrendingDownIcon fontSize="small" />}
-                  <Typography variant="body2" sx={{ ml: 0.5 }}>
-                    {index.changePercent.toFixed(2)}%
-                  </Typography>
-                </Box>
-              </Box>
+    <OverviewContainer elevation={3}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+          Market Overview
+        </Typography>
+        
+        {marketStatus && (
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            backgroundColor: marketStatus.isOpen ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
+            borderRadius: '16px',
+            padding: '4px 12px',
+          }}>
+            <Box 
+              sx={{ 
+                width: 8, 
+                height: 8, 
+                borderRadius: '50%', 
+                backgroundColor: marketStatus.isOpen ? 'success.main' : 'error.main',
+                mr: 1
+              }} 
+            />
+            <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+              {marketStatus.isOpen ? 'Markets Open' : 'Markets Closed'}
+            </Typography>
+          </Box>
+        )}
+      </Box>
+      
+      <Divider sx={{ mb: 2 }} />
+      
+      <Grid container spacing={2}>
+        {marketData.map((index) => (
+          <Grid item xs={12} sm={6} md={4} key={index.symbol}>
+            <IndexCard positive={index.change >= 0}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                {index.name}
+              </Typography>
               
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="h4" component="div">
-                  {index.price.toLocaleString()}
-                </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', my: 1 }}>
+                {index.price.toFixed(2)}
+              </Typography>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', mt: 'auto' }}>
+                {index.change >= 0 ? (
+                  <ArrowUpwardIcon fontSize="small" sx={{ color: 'success.main', mr: 0.5 }} />
+                ) : (
+                  <ArrowDownwardIcon fontSize="small" sx={{ color: 'error.main', mr: 0.5 }} />
+                )}
+                
                 <Typography 
                   variant="body2" 
                   sx={{ 
-                    color: index.change >= 0 ? 'success.main' : 'error.main',
-                    display: 'flex',
-                    alignItems: 'center',
+                    fontWeight: 'bold',
+                    color: index.change >= 0 ? 'success.main' : 'error.main'
                   }}
                 >
-                  {index.change >= 0 ? '+' : ''}{index.change.toFixed(2)} pts
+                  {index.change >= 0 ? '+' : ''}{index.change.toFixed(2)} ({index.changePercent.toFixed(2)}%)
                 </Typography>
               </Box>
-            </Item>
+            </IndexCard>
           </Grid>
         ))}
       </Grid>
-    </Box>
+    </OverviewContainer>
   );
 };
 

@@ -11,12 +11,20 @@ import {
   InputLabel,
   Grid,
   Divider,
-  Chip
+  Chip,
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ReactApexChart from 'react-apexcharts';
-import { stockData } from '../data/stockData';
+import { stockData } from '../data/stockData'; // Keep for fallback
 import SimilarStocks from './SimilarStocks';
+import { 
+  fetchStockTimeSeries, 
+  fetchCompanyOverview, 
+  fetchQuote,
+  popularStocks
+} from '../services/stockApi';
 
 const ChartContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -35,15 +43,59 @@ const MetricItem = styled(Box)(({ theme }) => ({
   minWidth: '100px',
 }));
 
+const LoadingContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: theme.spacing(4),
+  minHeight: '400px',
+}));
+
 const StockChart = () => {
-  const [selectedStock, setSelectedStock] = useState(stockData[0].symbol);
+  const [selectedStock, setSelectedStock] = useState('AAPL');
   const [timeRange, setTimeRange] = useState('1M');
+  const [stockList, setStockList] = useState(popularStocks);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [stockTimeSeriesData, setStockTimeSeriesData] = useState(null);
+  const [companyOverview, setCompanyOverview] = useState(null);
+  const [quoteData, setQuoteData] = useState(null);
+  
+  // Fetch stock data when selected stock changes
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Fetch time series data
+        const timeSeriesData = await fetchStockTimeSeries(selectedStock);
+        setStockTimeSeriesData(timeSeriesData);
+        
+        // Fetch company overview
+        const overview = await fetchCompanyOverview(selectedStock);
+        setCompanyOverview(overview);
+        
+        // Fetch latest quote
+        const quote = await fetchQuote(selectedStock);
+        setQuoteData(quote);
+      } catch (err) {
+        console.error('Error fetching stock data:', err);
+        setError('Failed to fetch stock data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [selectedStock]);
   
   // Listen for stock selection events from the search bar
   useEffect(() => {
     const handleStockSelected = (event) => {
       const { symbol } = event.detail;
-      if (symbol && stockData.some(stock => stock.symbol === symbol)) {
+      if (symbol) {
         setSelectedStock(symbol);
       }
     };
@@ -65,22 +117,21 @@ const StockChart = () => {
     }
   };
   
-  const currentStock = stockData.find(stock => stock.symbol === selectedStock);
-  
   // Filter data based on selected time range
   const getFilteredData = () => {
-    const data = currentStock.historicalData;
+    if (!stockTimeSeriesData) return [];
+    
     switch (timeRange) {
       case '1W':
-        return data.slice(-7);
+        return stockTimeSeriesData.slice(0, 7);
       case '1M':
-        return data.slice(-30);
+        return stockTimeSeriesData.slice(0, 30);
       case '3M':
-        return data.slice(-90);
+        return stockTimeSeriesData.slice(0, 90);
       case '1Y':
-        return data;
+        return stockTimeSeriesData;
       default:
-        return data.slice(-30);
+        return stockTimeSeriesData.slice(0, 30);
     }
   };
   
@@ -191,8 +242,8 @@ const StockChart = () => {
       selection: {
         enabled: true,
         xaxis: {
-          min: new Date(filteredData[0].date).getTime(),
-          max: new Date(filteredData[filteredData.length - 1].date).getTime()
+          min: filteredData.length > 0 ? new Date(filteredData[filteredData.length - 1].date).getTime() : null,
+          max: filteredData.length > 0 ? new Date(filteredData[0].date).getTime() : null
         }
       }
     },
@@ -244,22 +295,89 @@ const StockChart = () => {
     }
   };
   
+  // If loading, show loading indicator
+  if (loading) {
+    return (
+      <ChartContainer elevation={3}>
+        <LoadingContainer>
+          <CircularProgress size={60} />
+          <Typography variant="h6" sx={{ mt: 2 }}>
+            Loading stock data...
+          </Typography>
+        </LoadingContainer>
+      </ChartContainer>
+    );
+  }
+  
+  // If error, show error message
+  if (error) {
+    return (
+      <ChartContainer elevation={3}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+        <Typography variant="body1">
+          Please try again later or select a different stock.
+        </Typography>
+      </ChartContainer>
+    );
+  }
+  
+  // If no data yet, show loading
+  if (!stockTimeSeriesData || stockTimeSeriesData.length === 0 || !quoteData) {
+    return (
+      <ChartContainer elevation={3}>
+        <LoadingContainer>
+          <CircularProgress size={60} />
+          <Typography variant="h6" sx={{ mt: 2 }}>
+            Loading stock data...
+          </Typography>
+        </LoadingContainer>
+      </ChartContainer>
+    );
+  }
+  
+  // Get company name from overview or fallback to stock list
+  const getCompanyName = () => {
+    if (companyOverview && companyOverview.Name) {
+      return companyOverview.Name;
+    }
+    
+    const stockInfo = stockList.find(stock => stock.symbol === selectedStock);
+    return stockInfo ? stockInfo.name : selectedStock;
+  };
+  
+  // Get sector from overview or fallback to stock list
+  const getSector = () => {
+    if (companyOverview && companyOverview.Sector) {
+      return companyOverview.Sector;
+    }
+    
+    const stockInfo = stockList.find(stock => stock.symbol === selectedStock);
+    return stockInfo ? stockInfo.sector : 'N/A';
+  };
+  
+  // Get industry from overview
+  const getIndustry = () => {
+    return companyOverview && companyOverview.Industry ? companyOverview.Industry : 'N/A';
+  };
+  
   return (
     <>
       <ChartContainer elevation={3}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-              {currentStock.name} ({currentStock.symbol})
+              {getCompanyName()} ({selectedStock})
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
               <Chip 
-                label={currentStock.sector} 
+                label={getSector()} 
                 size="small" 
                 sx={{ mr: 1, backgroundColor: 'rgba(25, 118, 210, 0.1)', color: 'primary.main' }} 
               />
               <Typography variant="body2" color="text.secondary">
-                {currentStock.industry}
+                {getIndustry()}
               </Typography>
             </Box>
           </Box>
@@ -275,7 +393,7 @@ const StockChart = () => {
                 onChange={handleStockChange}
                 size="small"
               >
-                {stockData.map((stock) => (
+                {stockList.map((stock) => (
                   <MenuItem key={stock.symbol} value={stock.symbol}>
                     {stock.symbol} - {stock.name}
                   </MenuItem>
@@ -299,16 +417,16 @@ const StockChart = () => {
         
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Typography variant="h4" sx={{ fontWeight: 'bold', mr: 2 }}>
-            ${currentStock.price.toFixed(2)}
+            ${quoteData.price.toFixed(2)}
           </Typography>
           <Typography 
             variant="body1" 
             sx={{ 
-              color: currentStock.change >= 0 ? 'success.main' : 'error.main',
+              color: quoteData.change >= 0 ? 'success.main' : 'error.main',
               fontWeight: 'bold',
             }}
           >
-            {currentStock.change >= 0 ? '+' : ''}{currentStock.change.toFixed(2)} ({currentStock.changePercent.toFixed(2)}%)
+            {quoteData.change >= 0 ? '+' : ''}{quoteData.change.toFixed(2)} ({quoteData.changePercent.toFixed(2)}%)
           </Typography>
         </Box>
         
@@ -336,56 +454,82 @@ const StockChart = () => {
           </Grid>
         </Grid>
         
-        <Divider sx={{ my: 3 }} />
-        
-        <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
-          Key Metrics
-        </Typography>
-        
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-          <MetricItem>
-            <Typography variant="body2" color="text.secondary">P/E Ratio</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{currentStock.peRatio.toFixed(2)}</Typography>
-          </MetricItem>
-          
-          <MetricItem>
-            <Typography variant="body2" color="text.secondary">EPS</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>${currentStock.eps.toFixed(2)}</Typography>
-          </MetricItem>
-          
-          <MetricItem>
-            <Typography variant="body2" color="text.secondary">Market Cap</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>${(currentStock.marketCap / 1000000000).toFixed(2)}B</Typography>
-          </MetricItem>
-          
-          <MetricItem>
-            <Typography variant="body2" color="text.secondary">Revenue</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>${currentStock.revenueInBillions.toFixed(2)}B</Typography>
-          </MetricItem>
-          
-          <MetricItem>
-            <Typography variant="body2" color="text.secondary">Profit Margin</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{currentStock.profitMargin.toFixed(2)}%</Typography>
-          </MetricItem>
-          
-          <MetricItem>
-            <Typography variant="body2" color="text.secondary">Dividend Yield</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{currentStock.dividendYield.toFixed(2)}%</Typography>
-          </MetricItem>
-          
-          <MetricItem>
-            <Typography variant="body2" color="text.secondary">52W High</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>${currentStock.fiftyTwoWeekHigh.toFixed(2)}</Typography>
-          </MetricItem>
-          
-          <MetricItem>
-            <Typography variant="body2" color="text.secondary">52W Low</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>${currentStock.fiftyTwoWeekLow.toFixed(2)}</Typography>
-          </MetricItem>
-        </Box>
+        {companyOverview && (
+          <>
+            <Divider sx={{ my: 3 }} />
+            
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+              Key Metrics
+            </Typography>
+            
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+              <MetricItem>
+                <Typography variant="body2" color="text.secondary">P/E Ratio</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  {companyOverview.PERatio !== 'None' ? parseFloat(companyOverview.PERatio).toFixed(2) : 'N/A'}
+                </Typography>
+              </MetricItem>
+              
+              <MetricItem>
+                <Typography variant="body2" color="text.secondary">EPS</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  ${companyOverview.EPS !== 'None' ? parseFloat(companyOverview.EPS).toFixed(2) : 'N/A'}
+                </Typography>
+              </MetricItem>
+              
+              <MetricItem>
+                <Typography variant="body2" color="text.secondary">Market Cap</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  ${companyOverview.MarketCapitalization ? (parseFloat(companyOverview.MarketCapitalization) / 1000000000).toFixed(2) + 'B' : 'N/A'}
+                </Typography>
+              </MetricItem>
+              
+              <MetricItem>
+                <Typography variant="body2" color="text.secondary">Revenue</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  ${companyOverview.RevenueTTM ? (parseFloat(companyOverview.RevenueTTM) / 1000000000).toFixed(2) + 'B' : 'N/A'}
+                </Typography>
+              </MetricItem>
+              
+              <MetricItem>
+                <Typography variant="body2" color="text.secondary">Profit Margin</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  {companyOverview.ProfitMargin !== 'None' ? (parseFloat(companyOverview.ProfitMargin) * 100).toFixed(2) + '%' : 'N/A'}
+                </Typography>
+              </MetricItem>
+              
+              <MetricItem>
+                <Typography variant="body2" color="text.secondary">Dividend Yield</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  {companyOverview.DividendYield !== 'None' ? (parseFloat(companyOverview.DividendYield) * 100).toFixed(2) + '%' : 'N/A'}
+                </Typography>
+              </MetricItem>
+              
+              <MetricItem>
+                <Typography variant="body2" color="text.secondary">52W High</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  ${companyOverview['52WeekHigh'] ? parseFloat(companyOverview['52WeekHigh']).toFixed(2) : 'N/A'}
+                </Typography>
+              </MetricItem>
+              
+              <MetricItem>
+                <Typography variant="body2" color="text.secondary">52W Low</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  ${companyOverview['52WeekLow'] ? parseFloat(companyOverview['52WeekLow']).toFixed(2) : 'N/A'}
+                </Typography>
+              </MetricItem>
+            </Box>
+          </>
+        )}
       </ChartContainer>
       
-      <SimilarStocks selectedStock={selectedStock} />
+      {companyOverview && (
+        <SimilarStocks 
+          selectedStock={selectedStock} 
+          sector={getSector()}
+          peRatio={companyOverview.PERatio !== 'None' ? parseFloat(companyOverview.PERatio) : null}
+        />
+      )}
     </>
   );
 };
