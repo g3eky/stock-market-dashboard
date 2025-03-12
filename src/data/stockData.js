@@ -14,7 +14,7 @@ export const stockSymbols = [
   { symbol: 'WMT', name: 'Walmart Inc.' },
 ];
 
-// Generate random price data for the last 30 days
+// Generate random price data for the last 30 days with OHLC values
 const generateHistoricalData = (basePrice, volatility) => {
   const data = [];
   let currentPrice = basePrice;
@@ -28,11 +28,24 @@ const generateHistoricalData = (basePrice, volatility) => {
     const change = (Math.random() - 0.5) * volatility * currentPrice;
     currentPrice = Math.max(currentPrice + change, 1); // Ensure price doesn't go below 1
     
+    // Generate OHLC (Open, High, Low, Close) values
+    const openPrice = currentPrice;
+    const closePrice = parseFloat((currentPrice + (Math.random() - 0.5) * volatility * currentPrice * 0.5).toFixed(2));
+    const highPrice = parseFloat(Math.max(openPrice, closePrice, openPrice + Math.random() * volatility * currentPrice).toFixed(2));
+    const lowPrice = parseFloat(Math.min(openPrice, closePrice, openPrice - Math.random() * volatility * currentPrice).toFixed(2));
+    
     data.push({
       date: date.toISOString().split('T')[0],
-      price: parseFloat(currentPrice.toFixed(2)),
+      open: openPrice,
+      high: highPrice,
+      low: lowPrice,
+      close: closePrice,
+      price: closePrice, // Keep price for backward compatibility
       volume: Math.floor(Math.random() * 10000000) + 1000000,
     });
+    
+    // Update current price for next iteration
+    currentPrice = closePrice;
   }
   
   return data;
@@ -43,8 +56,8 @@ export const stockData = stockSymbols.map(stock => {
   const basePrice = Math.random() * 1000 + 50; // Random base price between 50 and 1050
   const volatility = Math.random() * 0.05 + 0.01; // Random volatility between 1% and 6%
   const historicalData = generateHistoricalData(basePrice, volatility);
-  const currentPrice = historicalData[historicalData.length - 1].price;
-  const previousPrice = historicalData[historicalData.length - 2].price;
+  const currentPrice = historicalData[historicalData.length - 1].close;
+  const previousPrice = historicalData[historicalData.length - 2].close;
   const change = currentPrice - previousPrice;
   const changePercent = (change / previousPrice) * 100;
   
