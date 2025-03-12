@@ -6,6 +6,7 @@ import MarketOverview from './MarketOverview';
 import StockChart from './StockChart';
 import WatchList from './WatchList';
 import { fetchMultipleQuotes, popularStocks } from '../services/stockApi';
+import { stockData } from '../data/stockData';
 
 const DashboardContainer = styled(Container)(({ theme }) => ({
   paddingTop: theme.spacing(4),
@@ -25,11 +26,13 @@ const Dashboard = () => {
   const [watchlistData, setWatchlistData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [usingFallbackData, setUsingFallbackData] = useState(false);
   
   useEffect(() => {
     const fetchWatchlistData = async () => {
       setLoading(true);
       setError(null);
+      setUsingFallbackData(false);
       
       try {
         // Get default watchlist symbols
@@ -53,7 +56,26 @@ const Dashboard = () => {
         setWatchlistData(watchlistWithNames);
       } catch (err) {
         console.error('Error fetching watchlist data:', err);
-        setError('Failed to fetch watchlist data. Please try again later.');
+        
+        // Use fallback data
+        const fallbackWatchlist = stockData
+          .filter(stock => ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META'].includes(stock.symbol))
+          .map(stock => ({
+            symbol: stock.symbol,
+            name: stock.name,
+            price: stock.price,
+            change: stock.change,
+            changePercent: stock.changePercent,
+            sector: stock.sector
+          }));
+        
+        if (fallbackWatchlist.length > 0) {
+          console.log('Using fallback watchlist data');
+          setWatchlistData(fallbackWatchlist);
+          setUsingFallbackData(true);
+        } else {
+          setError('Failed to fetch watchlist data. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
@@ -96,7 +118,7 @@ const Dashboard = () => {
         </Box>
         
         <Box sx={{ flex: 1 }}>
-          <WatchList stocks={watchlistData} />
+          <WatchList stocks={watchlistData} usingFallbackData={usingFallbackData} />
         </Box>
       </Box>
     </DashboardContainer>

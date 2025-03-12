@@ -12,6 +12,7 @@ import { styled } from '@mui/material/styles';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { fetchMultipleQuotes, marketIndices, fetchGlobalMarketStatus } from '../services/stockApi';
+import { marketIndices as fallbackMarketIndices } from '../data/stockData';
 
 const OverviewContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -42,11 +43,13 @@ const MarketOverview = () => {
   const [marketStatus, setMarketStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [usingFallbackData, setUsingFallbackData] = useState(false);
   
   useEffect(() => {
     const fetchMarketData = async () => {
       setLoading(true);
       setError(null);
+      setUsingFallbackData(false);
       
       try {
         // Fetch quotes for market indices
@@ -69,7 +72,20 @@ const MarketOverview = () => {
         setMarketStatus(status);
       } catch (err) {
         console.error('Error fetching market data:', err);
-        setError('Failed to fetch market data. Please try again later.');
+        
+        // Use fallback data
+        if (fallbackMarketIndices && fallbackMarketIndices.length > 0) {
+          console.log('Using fallback market data');
+          setMarketData(fallbackMarketIndices);
+          setMarketStatus({
+            isOpen: new Date().getHours() >= 9 && new Date().getHours() < 16,
+            currentTime: new Date().toISOString(),
+            lastUpdated: new Date().toISOString()
+          });
+          setUsingFallbackData(true);
+        } else {
+          setError('Failed to fetch market data. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
@@ -100,8 +116,8 @@ const MarketOverview = () => {
     );
   }
   
-  // If error, show error message
-  if (error) {
+  // If error and no fallback data, show error message
+  if (error && !usingFallbackData) {
     return (
       <OverviewContainer elevation={3}>
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
@@ -116,6 +132,12 @@ const MarketOverview = () => {
   
   return (
     <OverviewContainer elevation={3}>
+      {usingFallbackData && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Using simulated market data due to API limitations.
+        </Alert>
+      )}
+      
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
           Market Overview

@@ -61,12 +61,14 @@ const StockChart = () => {
   const [stockTimeSeriesData, setStockTimeSeriesData] = useState(null);
   const [companyOverview, setCompanyOverview] = useState(null);
   const [quoteData, setQuoteData] = useState(null);
+  const [usingFallbackData, setUsingFallbackData] = useState(false);
   
   // Fetch stock data when selected stock changes
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
+      setUsingFallbackData(false);
       
       try {
         // Fetch time series data
@@ -82,7 +84,37 @@ const StockChart = () => {
         setQuoteData(quote);
       } catch (err) {
         console.error('Error fetching stock data:', err);
-        setError('Failed to fetch stock data. Please try again later.');
+        
+        // Use fallback data if API fails
+        const fallbackStock = stockData.find(stock => stock.symbol === selectedStock) || stockData[0];
+        
+        if (fallbackStock) {
+          console.log('Using fallback data for', selectedStock);
+          setStockTimeSeriesData(fallbackStock.historicalData);
+          setQuoteData({
+            symbol: fallbackStock.symbol,
+            price: fallbackStock.price,
+            change: fallbackStock.change,
+            changePercent: fallbackStock.changePercent
+          });
+          setCompanyOverview({
+            Symbol: fallbackStock.symbol,
+            Name: fallbackStock.name,
+            Sector: fallbackStock.sector,
+            Industry: fallbackStock.industry,
+            PERatio: fallbackStock.peRatio.toString(),
+            EPS: fallbackStock.eps.toString(),
+            MarketCapitalization: (fallbackStock.marketCap).toString(),
+            RevenueTTM: (fallbackStock.revenueInBillions * 1000000000).toString(),
+            ProfitMargin: (fallbackStock.profitMargin / 100).toString(),
+            DividendYield: (fallbackStock.dividendYield / 100).toString(),
+            '52WeekHigh': fallbackStock.fiftyTwoWeekHigh.toString(),
+            '52WeekLow': fallbackStock.fiftyTwoWeekLow.toString()
+          });
+          setUsingFallbackData(true);
+        } else {
+          setError('Failed to fetch stock data. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
@@ -309,8 +341,8 @@ const StockChart = () => {
     );
   }
   
-  // If error, show error message
-  if (error) {
+  // If error and no fallback data, show error message
+  if (error && !usingFallbackData) {
     return (
       <ChartContainer elevation={3}>
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -365,6 +397,12 @@ const StockChart = () => {
   return (
     <>
       <ChartContainer elevation={3}>
+        {usingFallbackData && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Using simulated data due to API limitations. For real-time data, please use your own API key.
+          </Alert>
+        )}
+        
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
@@ -528,6 +566,7 @@ const StockChart = () => {
           selectedStock={selectedStock} 
           sector={getSector()}
           peRatio={companyOverview.PERatio !== 'None' ? parseFloat(companyOverview.PERatio) : null}
+          usingFallbackData={usingFallbackData}
         />
       )}
     </>

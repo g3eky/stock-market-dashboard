@@ -53,7 +53,7 @@ const LoadingContainer = styled(Box)(({ theme }) => ({
   minHeight: '200px',
 }));
 
-const WatchList = ({ stocks = [] }) => {
+const WatchList = ({ stocks = [], usingFallbackData = false }) => {
   const handleStockClick = (symbol) => {
     // Dispatch custom event to update the chart
     const event = new CustomEvent('stockSelected', { 
@@ -84,6 +84,12 @@ const WatchList = ({ stocks = [] }) => {
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
         Watchlist
       </Typography>
+      
+      {usingFallbackData && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Using simulated data due to API limitations.
+        </Alert>
+      )}
       
       <List disablePadding>
         {stocks.map((stock, index) => (

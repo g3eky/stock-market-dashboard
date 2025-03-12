@@ -18,6 +18,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { fetchMultipleQuotes, fetchCompanyOverview, popularStocks } from '../services/stockApi';
+import { stockData } from '../data/stockData';
 
 const SimilarStocksContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -48,7 +49,7 @@ const LoadingContainer = styled(Box)(({ theme }) => ({
   minHeight: '200px',
 }));
 
-const SimilarStocks = ({ selectedStock, sector, peRatio }) => {
+const SimilarStocks = ({ selectedStock, sector, peRatio, usingFallbackData = false }) => {
   const [similarStocks, setSimilarStocks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -59,6 +60,14 @@ const SimilarStocks = ({ selectedStock, sector, peRatio }) => {
       
       setLoading(true);
       setError(null);
+      
+      // If we're already using fallback data from StockChart, use fallback here too
+      if (usingFallbackData) {
+        const fallbackSimilarStocks = getSimilarStocksFromFallbackData(selectedStock, sector, peRatio);
+        setSimilarStocks(fallbackSimilarStocks);
+        setLoading(false);
+        return;
+      }
       
       try {
         // Get all stocks in the same sector
@@ -115,14 +124,46 @@ const SimilarStocks = ({ selectedStock, sector, peRatio }) => {
         setSimilarStocks(stocksWithData.slice(0, 5));
       } catch (err) {
         console.error('Error fetching similar stocks:', err);
-        setError('Failed to fetch similar stocks data.');
+        
+        // Use fallback data if API fails
+        const fallbackSimilarStocks = getSimilarStocksFromFallbackData(selectedStock, sector, peRatio);
+        if (fallbackSimilarStocks.length > 0) {
+          setSimilarStocks(fallbackSimilarStocks);
+        } else {
+          setError('Failed to fetch similar stocks data.');
+        }
       } finally {
         setLoading(false);
       }
     };
     
     fetchSimilarStocks();
-  }, [selectedStock, sector, peRatio]);
+  }, [selectedStock, sector, peRatio, usingFallbackData]);
+  
+  // Helper function to get similar stocks from fallback data
+  const getSimilarStocksFromFallbackData = (symbol, sectorName, pe) => {
+    const currentStock = stockData.find(stock => stock.symbol === symbol);
+    if (!currentStock) return [];
+    
+    return stockData
+      .filter(stock => 
+        stock.symbol !== symbol && 
+        stock.sector.toLowerCase() === sectorName.toLowerCase() &&
+        stock.peRatio < pe
+      )
+      .map(stock => ({
+        symbol: stock.symbol,
+        name: stock.name,
+        price: stock.price,
+        change: stock.change,
+        changePercent: stock.changePercent,
+        peRatio: stock.peRatio,
+        industry: stock.industry,
+        peDifference: ((pe - stock.peRatio) / pe) * 100
+      }))
+      .sort((a, b) => b.peDifference - a.peDifference)
+      .slice(0, 5);
+  };
   
   const handleRowClick = (symbol) => {
     // Dispatch custom event to update the chart
@@ -187,6 +228,12 @@ const SimilarStocks = ({ selectedStock, sector, peRatio }) => {
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
         Similar Stocks with Lower P/E Ratios
       </Typography>
+      
+      {usingFallbackData && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Using simulated data due to API limitations.
+        </Alert>
+      )}
       
       <TableContainer>
         <Table size="small">

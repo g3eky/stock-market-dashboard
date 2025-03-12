@@ -4,11 +4,13 @@ import {
   TextField, 
   Autocomplete, 
   CircularProgress,
-  Typography
+  Typography,
+  Alert
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
 import { searchStocks, popularStocks } from '../services/stockApi';
+import { stockData } from '../data/stockData';
 
 const SearchContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
@@ -25,6 +27,7 @@ const SearchBar = () => {
   const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [usingFallbackData, setUsingFallbackData] = useState(false);
   
   // Fetch search results when search query changes
   useEffect(() => {
@@ -37,6 +40,7 @@ const SearchBar = () => {
     
     const fetchData = async () => {
       setLoading(true);
+      setUsingFallbackData(false);
       
       try {
         const results = await searchStocks(searchQuery);
@@ -54,8 +58,22 @@ const SearchBar = () => {
         }
       } catch (error) {
         console.error('Error searching stocks:', error);
+        
+        // Use fallback data for search
         if (active) {
-          setOptions([]);
+          const query = searchQuery.toLowerCase();
+          const fallbackResults = stockData.filter(stock => 
+            stock.symbol.toLowerCase().includes(query) || 
+            stock.name.toLowerCase().includes(query)
+          ).map(stock => ({
+            symbol: stock.symbol,
+            name: stock.name,
+            type: 'Equity',
+            region: 'United States'
+          }));
+          
+          setOptions(fallbackResults);
+          setUsingFallbackData(true);
         }
       } finally {
         if (active) {
@@ -99,6 +117,12 @@ const SearchBar = () => {
   
   return (
     <SearchContainer>
+      {usingFallbackData && (
+        <Alert severity="warning" sx={{ mb: 2, width: '100%' }}>
+          Using simulated search data due to API limitations.
+        </Alert>
+      )}
+      
       <Autocomplete
         id="stock-search"
         sx={{ width: '100%' }}
